@@ -11,7 +11,7 @@ set(GLFW_LIBRARY "${GLFW_ROOT}/build/src/libglfw3.a")
 # Add source files
 set(SOURCES
     src/main.cpp
-    src/gl.c
+    src/glad.c
 )
 
 add_executable(opengl-3d-renderer ${SOURCES})
@@ -21,6 +21,14 @@ target_include_directories(opengl-3d-renderer PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${GLFW_INCLUDE_DIR}
 )
+
+target_include_directories(opengl-3d-renderer PRIVATE 
+    ${CMAKE_SOURCE_DIR}/include
+    ${GLFW_INCLUDE_DIR}
+    ${CMAKE_SOURCE_DIR}/external/glm
+)
+
+target_include_directories(opengl-3d-renderer PRIVATE ${CMAKE_SOURCE_DIR}/external/glm/glm)
 
 # Link libraries
 target_link_libraries(opengl-3d-renderer PRIVATE ${GLFW_LIBRARY})
