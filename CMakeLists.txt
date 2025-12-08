@@ -12,6 +12,7 @@ set(GLFW_LIBRARY "${GLFW_ROOT}/build/src/libglfw3.a")
 set(SOURCES
     src/main.cpp
     src/glad.c
+    src/stb_image.cpp
 )
 
 add_executable(opengl-3d-renderer ${SOURCES})
