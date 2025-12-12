@@ -3,11 +3,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <iostream>
 #include <cmath>
 #include "graphics/shader.h"
 #include "core/camera.h"
-#include <stb/stb_image.h>
+#include "graphics/model.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -21,23 +24,13 @@ double mXpos, mYpos;
 double lastXpos = 640, lastYpos = 360;
 bool firstMouse = true;
 
-float mixValue = 0.0f;
 float rotationDegree = 0.0f;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 void processInput(GLFWwindow *window)
 {
-    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-    if(glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        mixValue = mixValue + 0.001f;
-        if (mixValue > 1) mixValue = 1;
-    }
-    if(glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        mixValue = mixValue - 0.001f;
-        if (mixValue < 0) mixValue = 0;
-    }
+    if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
 
     const float cameraSpeed = 7.5f * deltaTime; 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -73,73 +66,68 @@ void cursor_position_callback(GLFWwindow* window, double xposIn, double yposIn) 
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-void changeDegree() {
-    rotationDegree += 0.1f;
-    if (rotationDegree >= 360.0f) {
-        rotationDegree = 0.0f;
-    }
-}
+// float vertices[] = {
+//     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+//      0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+//      0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+//      0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+//     -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+//     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-float vertices[] = {
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+//     -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 0.0f,
+//      0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 0.0f,
+//      0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 1.0f,
+//      0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  1.0f, 1.0f,
+//     -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 1.0f,
+//     -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,  0.0f, 0.0f,
 
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+//     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+//     -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+//     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+//     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+//     -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+//     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
 
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+//      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+//      0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+//      0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+//      0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+//      0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+//      0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
 
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+//     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+//      0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+//      0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+//      0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
+//     -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+//     -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
 
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+//     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
+//      0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
+//      0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+//      0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+//     -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+//     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f
+// };
 
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-};
+// glm::vec3 cubePositions[] = {
+//         glm::vec3( 0.0f,  0.0f,  0.0f),
+//         glm::vec3( 2.0f,  5.0f, -15.0f),
+//         glm::vec3(-1.5f, -2.2f, -2.5f),
+//         glm::vec3(-3.8f, -2.0f, -12.3f),
+//         glm::vec3( 2.4f, -0.4f, -3.5f),
+//         glm::vec3(-1.7f,  3.0f, -7.5f),
+//         glm::vec3( 1.3f, -2.0f, -2.5f),
+//         glm::vec3( 1.5f,  2.0f, -2.5f),
+//         glm::vec3( 1.5f,  0.2f, -1.5f),
+//         glm::vec3(-1.3f,  1.0f, -1.5f)
+// };
 
-glm::vec3 cubePositions[] = {
-        glm::vec3( 0.0f,  0.0f,  -18.0f),
-        glm::vec3( 2.0f,  5.0f, -15.0f),
-        glm::vec3(-1.5f, -2.2f, -2.5f),
-        glm::vec3(-3.8f, -2.0f, -12.3f),
-        glm::vec3 (2.4f, -0.4f, -3.5f),
-        glm::vec3(-1.7f,  3.0f, -7.5f),
-        glm::vec3( 1.3f, -2.0f, -2.5f),
-        glm::vec3( 1.5f,  2.0f, -2.5f),
-        glm::vec3( 1.5f,  0.2f, -1.5f),
-        glm::vec3(-1.3f,  1.0f, -1.5f)
-};
-
-unsigned int indices[] = {
-    0, 1, 2,
-    2, 3, 0
+glm::vec3 pointLightPositions[] = {
+        glm::vec3( 0.7f,  0.2f,  2.0f),
+        glm::vec3( 2.3f, -3.3f, -4.0f),
+        glm::vec3(-4.0f,  2.0f, -12.0f),
+        glm::vec3( 0.0f,  0.0f, -3.0f)
 };
 
 int main() {
@@ -168,68 +156,14 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    Shader myShader("../src/shaders/vertex.glsl", "../src/shaders/fragment.glsl");
+    Shader objectShader("../src/shaders/vertex.glsl", "../src/shaders/object_fragment.glsl");
+
+    glEnable(GL_DEPTH_TEST);
+    stbi_set_flip_vertically_on_load(true);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    unsigned int texture1, texture2;
-    glGenTextures(1, &texture1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    int width, height, channel_num;
-    unsigned char *data = stbi_load("../src/textures/narahat.png", &width, &height, &channel_num, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else {
-        std::cout << "Failed to load texture" << std::endl;
-    }
-    stbi_image_free(data);
-
-    glGenTextures(1, &texture2);
-    glBindTexture(GL_TEXTURE_2D, texture2);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_NEAREST);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    data = stbi_load("../src/textures/khoshhal.png", &width, &height, &channel_num, 0);
-    if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    stbi_image_free(data);
-
-    myShader.use();
-    myShader.setInt("texture1", 0);
-    myShader.setInt("texture2", 1);
-
-    unsigned int VAO, VBO, EOB;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EOB);
-    
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EOB);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    // glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    // glEnableVertexAttribArray(2);
-
-    glEnable(GL_DEPTH_TEST);  
+    Model loadedModel("../src/models/backpack.obj");
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -245,48 +179,82 @@ int main() {
         glfwGetCursorPos(window, &mXpos, &mYpos);
         glfwSetCursorPosCallback(window, cursor_position_callback);    
         glfwSetScrollCallback(window, scroll_callback); 
-        
-        glm::mat4 projection = glm::mat4(1.0f);
-        projection = glm::perspective(glm::radians(camera.Zoom), (float)1280.0 / (float)720.0, 0.1f, 100.0f);
-        myShader.setMat4("projection", projection);
 
         //rendering
-        glClearColor(0.6f, 0.6f, 0.6f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        myShader.use();
+        objectShader.use();
+
+        glm::mat4 projection = glm::mat4(1.0f);
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)1280.0 / (float)720.0, 0.1f, 100.0f);
+        objectShader.setMat4("projection", projection);
+
+        glm::vec3 lightDirection = glm::vec3(-0.2f, -1.0f, -0.3f);
+        objectShader.setVec3("viewPos", camera.Position);
+             
+        // directional light
+        objectShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+        objectShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+        objectShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        objectShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+        // point light 1
+        objectShader.setVec3("pointLights[0].position", pointLightPositions[0]);
+        objectShader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
+        objectShader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
+        objectShader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
+        objectShader.setFloat("pointLights[0].constant", 1.0f);
+        objectShader.setFloat("pointLights[0].linear", 0.09f);
+        objectShader.setFloat("pointLights[0].quadratic", 0.032f);
+        // point light 2
+        objectShader.setVec3("pointLights[1].position", pointLightPositions[1]);
+        objectShader.setVec3("pointLights[1].ambient", 0.05f, 0.05f, 0.05f);
+        objectShader.setVec3("pointLights[1].diffuse", 0.8f, 0.8f, 0.8f);
+        objectShader.setVec3("pointLights[1].specular", 1.0f, 1.0f, 1.0f);
+        objectShader.setFloat("pointLights[1].constant", 1.0f);
+        objectShader.setFloat("pointLights[1].linear", 0.09f);
+        objectShader.setFloat("pointLights[1].quadratic", 0.032f);
+        // point light 3
+        objectShader.setVec3("pointLights[2].position", pointLightPositions[2]);
+        objectShader.setVec3("pointLights[2].ambient", 0.05f, 0.05f, 0.05f);
+        objectShader.setVec3("pointLights[2].diffuse", 0.8f, 0.8f, 0.8f);
+        objectShader.setVec3("pointLights[2].specular", 1.0f, 1.0f, 1.0f);
+        objectShader.setFloat("pointLights[2].constant", 1.0f);
+        objectShader.setFloat("pointLights[2].linear", 0.09f);
+        objectShader.setFloat("pointLights[2].quadratic", 0.032f);
+        // point light 4
+        objectShader.setVec3("pointLights[3].position", pointLightPositions[3]);
+        objectShader.setVec3("pointLights[3].ambient", 0.05f, 0.05f, 0.05f);
+        objectShader.setVec3("pointLights[3].diffuse", 0.8f, 0.8f, 0.8f);
+        objectShader.setVec3("pointLights[3].specular", 1.0f, 1.0f, 1.0f);
+        objectShader.setFloat("pointLights[3].constant", 1.0f);
+        objectShader.setFloat("pointLights[3].linear", 0.09f);
+        objectShader.setFloat("pointLights[3].quadratic", 0.032f);
+        // spotlight
+        objectShader.setVec3("spotLight.position", camera.Position);
+        objectShader.setVec3("spotLight.direction", camera.Front);
+        objectShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        objectShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        objectShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        objectShader.setFloat("spotLight.constant", 1.0f);
+        objectShader.setFloat("spotLight.linear", 0.09f);
+        objectShader.setFloat("spotLight.quadratic", 0.032f);
+        objectShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
+        objectShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f))); 
 
         glm::mat4 view;
         view = camera.GetViewMatrix();
-        myShader.setMat4("view", view);
+        objectShader.setMat4("view", view);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, texture2);
-
-        glBindVertexArray(VAO);
-        for (unsigned int i = 0; i < 10; i++) {
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[i]);
-            model = glm::rotate(model, (float)glfwGetTime() * glm::radians(50.0f), glm::vec3(1.0f, 1.0f, 0.0f));
-            // model = glm::scale(model, glm::vec3(2.5f, 2.5f, 2.5f));
-            
-            myShader.setMat4("model", model);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
-        myShader.setFloat("mixValue", mixValue);
-
-        // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+        objectShader.setMat4("model", model);
+        loadedModel.Draw(objectShader);
+        
         glfwSwapBuffers(window);
         glfwPollEvents();    
     }
-
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
 
     glfwTerminate();
     return 0;
